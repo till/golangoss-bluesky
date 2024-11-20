@@ -51,7 +51,7 @@ func Do(ctx context.Context, c bluesky.Client) error {
 			}
 
 			if strings.Contains(e, "#") {
-				hashTags = e
+				hashTags = strings.TrimSpace(e)
 				continue
 			}
 

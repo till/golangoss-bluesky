@@ -9,6 +9,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+// CacheClientProcess is an in process cache that adheres to larry's interface
 type CacheClientProcess struct {
 	store sync.Map
 }
