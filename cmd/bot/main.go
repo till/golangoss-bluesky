@@ -8,6 +8,8 @@ import (
 
 	"log/slog"
 
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	bk "github.com/tailscale/go-bluesky"
 	"github.com/till/golangoss-bluesky/internal/bluesky"
 	"github.com/till/golangoss-bluesky/internal/content"
@@ -16,6 +18,8 @@ import (
 var (
 	blueskyHandle string = "till+bluesky-golang@lagged.biz"
 	blueskyAppKey string = ""
+
+	cacheBucket string = "golangoss-cache-bucket"
 
 	ctx context.Context
 )
@@ -53,12 +57,35 @@ func main() {
 		}
 	}
 
+	// init s3 client
+	mc, err := minio.New(os.Getenv("AWS_ENDPOINT"), &minio.Options{
+		Creds:  credentials.NewStaticV4(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_KEY"), ""),
+		Secure: true,
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to initialize MinIO client", slog.Any("err", err))
+		os.Exit(1)
+	}
+
+	// ensure the bucket exists
+	if err := mc.MakeBucket(ctx, cacheBucket, minio.MakeBucketOptions{}); err != nil {
+		slog.ErrorContext(ctx, "failed to create bucket", slog.Any("err", err))
+		os.Exit(1)
+	}
+
 	c := bluesky.Client{
 		Client: client,
 	}
 
-	if err := content.Start(); err != nil {
-		panic(err)
+	cacheClient := &content.CacheClientS3{
+		MC:     mc,
+		Bucket: cacheBucket,
+		CTX:    ctx,
+	}
+
+	if err := content.Start(cacheClient); err != nil {
+		slog.ErrorContext(ctx, "failed to start service", slog.Any("err", err))
+		os.Exit(1)
 	}
 
 	for {

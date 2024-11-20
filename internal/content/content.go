@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ezeoleaf/larry/cache"
 	"github.com/ezeoleaf/larry/config"
 	"github.com/ezeoleaf/larry/provider/github"
 	"github.com/till/golangoss-bluesky/internal/bluesky"
@@ -16,7 +17,7 @@ var (
 	provider github.Provider
 )
 
-func Start() error {
+func Start(cacheClient cache.Client) error {
 	if _, status := os.LookupEnv("GITHUB_TOKEN"); !status {
 		panic("No github token")
 	}
@@ -24,8 +25,6 @@ func Start() error {
 	cfg := config.Config{
 		Language: "go",
 	}
-
-	cacheClient := &CacheClientProcess{}
 
 	provider = github.NewProvider(os.Getenv("GITHUB_TOKEN"), cfg, cacheClient)
 	return nil
