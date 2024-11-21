@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	bk "github.com/tailscale/go-bluesky"
 	"github.com/till/golangoss-bluesky/internal/bluesky"
 	"github.com/till/golangoss-bluesky/internal/content"
+	"github.com/urfave/cli/v2"
 )
 
 var (
@@ -22,6 +24,14 @@ var (
 	cacheBucket string = "golangoss-cache-bucket"
 
 	ctx context.Context
+
+	// for cache
+	awsEndpoint    string = ""
+	awsAccessKeyId string = ""
+	awsSecretKey   string = ""
+
+	// for github crawling
+	githubToken string = ""
 )
 
 func init() {
@@ -30,71 +40,106 @@ func init() {
 	})))
 
 	ctx = context.Background()
-
-	if _, status := os.LookupEnv("BLUESKY_APP_KEY"); !status {
-		slog.ErrorContext(ctx, "no app key")
-		os.Exit(1)
-	}
-
-	blueskyAppKey = os.Getenv("BLUESKY_APP_KEY")
 }
 
 func main() {
-	client, err := bk.Dial(ctx, bk.ServerBskySocial)
-	if err != nil {
-		panic(err)
-	}
-	defer client.Close()
+	bot := cli.App{
+		Name: "golangoss-bluesky",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:        "bluesky-app-key",
+				EnvVars:     []string{"BLUESKY_APP_KEY"},
+				Required:    true,
+				Destination: &blueskyAppKey,
+			},
+			&cli.StringFlag{
+				Name:        "aws-endpoint",
+				EnvVars:     []string{"AWS_ENDPOINT"},
+				Required:    true,
+				Destination: &awsEndpoint,
+			},
+			&cli.StringFlag{
+				Name:        "aws-access-key-id",
+				EnvVars:     []string{"AWS_ACCESS_KEY_ID"},
+				Required:    true,
+				Destination: &awsAccessKeyId,
+			},
+			&cli.StringFlag{
+				Name:        "aws-secret-key",
+				EnvVars:     []string{"AWS_SECRET_KEY"},
+				Required:    true,
+				Destination: &awsSecretKey,
+			},
+			&cli.StringFlag{
+				Name:        "github-token",
+				EnvVars:     []string{"GITHUB_TOKEN"},
+				Required:    true,
+				Destination: &githubToken,
+			},
+		},
 
-	if err := client.Login(ctx, blueskyHandle, blueskyAppKey); err != nil {
-		switch {
-		case errors.Is(err, bk.ErrMasterCredentials):
-			panic("You're not allowed to use your full-access credentials, please create an appkey")
-		case errors.Is(err, bk.ErrLoginUnauthorized):
-			panic("Username of application password seems incorrect, please double check")
-		case err != nil:
-			panic("Something else went wrong, please look at the returned error")
-		}
+		Action: func(cCtx *cli.Context) error {
+			client, err := bk.Dial(ctx, bk.ServerBskySocial)
+			if err != nil {
+				return fmt.Errorf("failed to open connection: %v", err)
+			}
+			defer client.Close()
+
+			if err := client.Login(ctx, blueskyHandle, blueskyAppKey); err != nil {
+				switch {
+				case errors.Is(err, bk.ErrMasterCredentials):
+					return fmt.Errorf("you're not allowed to use your full-access credentials, please create an appkey")
+				case errors.Is(err, bk.ErrLoginUnauthorized):
+					return fmt.Errorf("username of application password seems incorrect, please double check")
+				case err != nil:
+					return fmt.Errorf("something else went wrong, please look at the returned error")
+				}
+			}
+
+			// init s3 client
+			mc, err := minio.New(awsEndpoint, &minio.Options{
+				Creds:  credentials.NewStaticV4(awsAccessKeyId, awsSecretKey, ""),
+				Secure: true,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to initialize minio client: %v", err)
+			}
+
+			// ensure the bucket exists
+			if err := mc.MakeBucket(ctx, cacheBucket, minio.MakeBucketOptions{}); err != nil {
+				return fmt.Errorf("failed to create bucket: %v", err)
+			}
+
+			c := bluesky.Client{
+				Client: client,
+			}
+
+			cacheClient := &content.CacheClientS3{
+				MC:     mc,
+				Bucket: cacheBucket,
+				CTX:    ctx,
+			}
+
+			if err := content.Start(githubToken, cacheClient); err != nil {
+				return fmt.Errorf("failed to start service: %v", err)
+			}
+
+			for {
+				slog.DebugContext(ctx, "checking...")
+				if err := content.Do(ctx, c); err != nil {
+					slog.ErrorContext(ctx, err.Error())
+					os.Exit(1)
+				}
+
+				time.Sleep(5 * time.Minute)
+			}
+			return nil
+		},
 	}
 
-	// init s3 client
-	mc, err := minio.New(os.Getenv("AWS_ENDPOINT"), &minio.Options{
-		Creds:  credentials.NewStaticV4(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_KEY"), ""),
-		Secure: true,
-	})
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to initialize MinIO client", slog.Any("err", err))
+	if err := bot.Run(os.Args); err != nil {
+		slog.ErrorContext(ctx, err.Error())
 		os.Exit(1)
 	}
 
-	// ensure the bucket exists
-	if err := mc.MakeBucket(ctx, cacheBucket, minio.MakeBucketOptions{}); err != nil {
-		slog.ErrorContext(ctx, "failed to create bucket", slog.Any("err", err))
-		os.Exit(1)
-	}
-
-	c := bluesky.Client{
-		Client: client,
-	}
-
-	cacheClient := &content.CacheClientS3{
-		MC:     mc,
-		Bucket: cacheBucket,
-		CTX:    ctx,
-	}
-
-	if err := content.Start(cacheClient); err != nil {
-		slog.ErrorContext(ctx, "failed to start service", slog.Any("err", err))
-		os.Exit(1)
-	}
-
-	for {
-		slog.DebugContext(ctx, "checking...")
-		if err := content.Do(ctx, c); err != nil {
-			slog.ErrorContext(ctx, err.Error())
-			os.Exit(1)
-		}
-
-		time.Sleep(5 * time.Minute)
-	}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 
 	"github.com/ezeoleaf/larry/cache"
@@ -17,16 +16,12 @@ var (
 	provider github.Provider
 )
 
-func Start(cacheClient cache.Client) error {
-	if _, status := os.LookupEnv("GITHUB_TOKEN"); !status {
-		panic("No github token")
-	}
-
+func Start(token string, cacheClient cache.Client) error {
 	cfg := config.Config{
 		Language: "go",
 	}
 
-	provider = github.NewProvider(os.Getenv("GITHUB_TOKEN"), cfg, cacheClient)
+	provider = github.NewProvider(token, cfg, cacheClient)
 	return nil
 }
 
