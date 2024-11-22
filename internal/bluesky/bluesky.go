@@ -2,8 +2,10 @@ package bluesky
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"strings"
 	"time"
 
@@ -128,7 +130,7 @@ func (c *Client) Post(ctx context.Context, post *bsky.FeedPost) error {
 	return c.Client.CustomCall(func(api *xrpc.Client) error {
 		sessionResult, err := atproto.ServerGetSession(ctx, api)
 		if err != nil {
-			return err
+			return handleError(ctx, err)
 		}
 
 		_, err = atproto.RepoCreateRecord(ctx, api, &atproto.RepoCreateRecord_Input{
@@ -139,6 +141,49 @@ func (c *Client) Post(ctx context.Context, post *bsky.FeedPost) error {
 			},
 		})
 
-		return err
+		return handleError(ctx, err)
 	})
+}
+
+func handleError(ctx context.Context, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// handle atproto specific errors
+	if rpcErr, ok := err.(*xrpc.Error); ok {
+		switch rpcErr.StatusCode {
+		case 400, 413:
+			slog.WarnContext(ctx, "the record data is invalid")
+			return err
+		case 401, 403:
+			slog.ErrorContext(ctx, "authentication failed; check the credentials")
+			return err
+		case 429:
+			slog.InfoContext(ctx, "we got rate limited, let's back off: "+rpcErr.Error())
+			return nil
+		default:
+			slog.DebugContext(ctx, "unhandled error: "+rpcErr.Error())
+			return err
+		}
+	}
+
+	// probably a low-level http/dns error
+	var netErr *net.OpError
+	if errors.As(err, &netErr) {
+		if netErr.Temporary() {
+			return nil
+		}
+
+		if netErr.Timeout() {
+			return nil
+		}
+
+		slog.ErrorContext(ctx, netErr.Error())
+		return err
+	}
+
+	// unhandled
+	slog.ErrorContext(ctx, err.Error())
+	return err
 }
