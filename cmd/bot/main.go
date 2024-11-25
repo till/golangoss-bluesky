@@ -32,6 +32,8 @@ var (
 
 	// for github crawling
 	githubToken string = ""
+
+	checkInterval time.Duration = 15 * time.Minute
 )
 
 func init() {
@@ -127,11 +129,16 @@ func main() {
 			for {
 				slog.DebugContext(ctx, "checking...")
 				if err := content.Do(ctx, c); err != nil {
-					slog.ErrorContext(ctx, err.Error())
-					os.Exit(1)
+					if !errors.Is(err, content.ErrCouldNotContent) {
+						slog.ErrorContext(ctx, err.Error())
+						os.Exit(1)
+					}
+					slog.DebugContext(ctx, "backing off...")
+					break
+
 				}
 
-				time.Sleep(5 * time.Minute)
+				time.Sleep(checkInterval)
 			}
 			return nil
 		},

@@ -2,7 +2,7 @@ package content
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log/slog"
 	"strings"
 
@@ -13,7 +13,8 @@ import (
 )
 
 var (
-	provider github.Provider
+	provider           github.Provider
+	ErrCouldNotContent = errors.New("could not get content")
 )
 
 func Start(token string, cacheClient cache.Client) error {
@@ -28,7 +29,8 @@ func Start(token string, cacheClient cache.Client) error {
 func Do(ctx context.Context, c bluesky.Client) error {
 	p, err := provider.GetContentToPublish()
 	if err != nil {
-		return fmt.Errorf("could not get content: %v", err)
+		slog.Error("error fetching content", slog.Any("err", err))
+		return ErrCouldNotContent
 	}
 
 	if p == nil {
