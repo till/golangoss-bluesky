@@ -126,21 +126,21 @@ func main() {
 				return fmt.Errorf("failed to start service: %v", err)
 			}
 
+			var runErr error
+
 			for {
 				slog.DebugContext(ctx, "checking...")
 				if err := content.Do(ctx, c); err != nil {
 					if !errors.Is(err, content.ErrCouldNotContent) {
-						slog.ErrorContext(ctx, err.Error())
-						os.Exit(1)
+						runErr = err
+						break
 					}
 					slog.DebugContext(ctx, "backing off...")
-					break
-
 				}
 
 				time.Sleep(checkInterval)
 			}
-			return nil
+			return runErr
 		},
 	}
 
