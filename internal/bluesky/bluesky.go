@@ -22,7 +22,7 @@ type Client struct {
 
 // PostRecord constructs a post record with a facet. To get there, it will find the
 // position of the URL inside the text and attaches it to the post.
-func PostRecord(title, url, author, stargazers, hashtags string) *bsky.FeedPost {
+func PostRecord(title, description, url, author, stargazers, hashtags string) *bsky.FeedPost {
 	text := title
 
 	var startAuthor int64 = -1
@@ -34,6 +34,17 @@ func PostRecord(title, url, author, stargazers, hashtags string) *bsky.FeedPost 
 
 	if len(stargazers) > 0 {
 		text += fmt.Sprintf(" (%s)", stargazers)
+	}
+
+	// 300 = limit + '#go'
+	if len(text) < (300-3) && len(description) > 0 {
+		// poor version of normalize
+		description = strings.Join(strings.Fields(description), " ")
+		if len(description) > 150 {
+			text += "\n\n" + description[0:147] + "..."
+		} else {
+			text += "\n\n" + description
+		}
 	}
 
 	if len(hashtags) > 0 {
@@ -57,7 +68,7 @@ func PostRecord(title, url, author, stargazers, hashtags string) *bsky.FeedPost 
 	}
 
 	if len(hashtags) > 0 {
-		allTags := strings.Split(hashtags, " ")
+		allTags := strings.Fields(hashtags)
 
 		startHashTag := int64(strings.Index(text, hashtags))
 
@@ -172,13 +183,16 @@ func handleError(ctx context.Context, err error) error {
 	var netErr *net.OpError
 	if errors.As(err, &netErr) {
 		if netErr.Temporary() {
+			slog.InfoContext(ctx, "temporary error: "+netErr.Error())
 			return nil
 		}
 
 		if netErr.Timeout() {
+			slog.InfoContext(ctx, "timeout error: "+netErr.Error())
 			return nil
 		}
 
+		// unhandled net error
 		slog.ErrorContext(ctx, netErr.Error())
 		return err
 	}

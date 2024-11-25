@@ -55,9 +55,8 @@ func Do(ctx context.Context, c bluesky.Client) error {
 				stargazers = e
 				continue
 			}
-
 		}
 	}
 
-	return c.Post(ctx, bluesky.PostRecord(*p.Title, *p.URL, author, stargazers, hashTags))
+	return c.Post(ctx, bluesky.PostRecord(*p.Title, *p.Subtitle, *p.URL, author, stargazers, hashTags))
 }
