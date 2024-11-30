@@ -46,7 +46,14 @@ func init() {
 
 func main() {
 	bot := cli.App{
-		Name: "golangoss-bluesky",
+		Name:        "golangoss-bluesky",
+		Description: "A little bot to post interesting Github projects to Bluesky",
+		HideVersion: true,
+		Authors: []*cli.Author{
+			{
+				Name: "Till Klampeckel",
+			},
+		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "bluesky-app-key",
@@ -81,6 +88,7 @@ func main() {
 		},
 
 		Action: func(cCtx *cli.Context) error {
+			// FIXME: run this in a control loop; or we crash the app
 			client, err := bk.Dial(ctx, bk.ServerBskySocial)
 			if err != nil {
 				return fmt.Errorf("failed to open connection: %v", err)
@@ -93,7 +101,7 @@ func main() {
 					return fmt.Errorf("you're not allowed to use your full-access credentials, please create an appkey")
 				case errors.Is(err, bk.ErrLoginUnauthorized):
 					return fmt.Errorf("username of application password seems incorrect, please double check")
-				case err != nil:
+				default:
 					return fmt.Errorf("something else went wrong, please look at the returned error")
 				}
 			}
