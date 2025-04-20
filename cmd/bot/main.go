@@ -124,11 +124,12 @@ func main() {
 				Client: client,
 			}
 
-			cacheClient := &content.CacheClientS3{
-				MC:     mc,
-				Bucket: cacheBucket,
-				CTX:    ctx,
-			}
+			cacheClient := content.NewCacheClientS3(ctx, mc, cacheBucket)
+
+			// Initialize and start the cleanup handler
+			cleanup := content.NewS3Cleanup(ctx, mc, cacheBucket)
+			cleanup.Start()
+			defer cleanup.Stop()
 
 			if err := content.Start(githubToken, cacheClient); err != nil {
 				return fmt.Errorf("failed to start service: %v", err)

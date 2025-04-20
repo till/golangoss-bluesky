@@ -3,6 +3,7 @@ package content
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/ezeoleaf/larry/config"
 	"github.com/ezeoleaf/larry/provider/github"
 	"github.com/till/golangoss-bluesky/internal/bluesky"
+	"github.com/till/golangoss-bluesky/internal/utils"
 )
 
 var (
@@ -29,7 +31,7 @@ func Start(token string, cacheClient cache.Client) error {
 func Do(ctx context.Context, c bluesky.Client) error {
 	p, err := provider.GetContentToPublish()
 	if err != nil {
-		slog.Error("error fetching content", slog.Any("err", err))
+		utils.LogError(fmt.Errorf("error fetching content: %w", err))
 		return ErrCouldNotContent
 	}
 
