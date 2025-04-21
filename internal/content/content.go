@@ -15,10 +15,13 @@ import (
 )
 
 var (
-	provider           github.Provider
+	provider github.Provider
+
+	// ErrCouldNotContent is returned when content cannot be fetched
 	ErrCouldNotContent = errors.New("could not get content")
 )
 
+// Start bootstraps the content provider
 func Start(token string, cacheClient cache.Client) error {
 	cfg := config.Config{
 		Language: "go",
@@ -28,6 +31,7 @@ func Start(token string, cacheClient cache.Client) error {
 	return nil
 }
 
+// Do gets content from the provider and posts it to bluesky
 func Do(ctx context.Context, c bluesky.Client) error {
 	p, err := provider.GetContentToPublish()
 	if err != nil {
