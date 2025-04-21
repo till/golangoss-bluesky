@@ -1,3 +1,4 @@
+// package main is the entry point for this application
 package main
 
 import (
@@ -19,20 +20,17 @@ import (
 )
 
 var (
-	blueskyHandle string = "till+bluesky-golang@lagged.biz"
-	blueskyAppKey string = ""
-
-	cacheBucket string = "golangoss-cache-bucket"
-
-	ctx context.Context
+	blueskyHandle = "till+bluesky-golang@lagged.biz"
+	blueskyAppKey = ""
 
 	// for cache
-	awsEndpoint    string = ""
-	awsAccessKeyId string = ""
-	awsSecretKey   string = ""
+	awsEndpoint    = ""
+	awsAccessKeyID = ""
+	awsSecretKey   = ""
+	cacheBucket    = "golangoss-cache-bucket"
 
 	// for github crawling
-	githubToken string = ""
+	githubToken = ""
 
 	checkInterval time.Duration = 15 * time.Minute
 	// How long to wait before retrying after a connection failure
@@ -43,8 +41,6 @@ func init() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	})))
-
-	ctx = context.Background()
 }
 
 // connectBluesky establishes a connection to Bluesky and logs in
@@ -143,7 +139,7 @@ func main() {
 				Name:        "aws-access-key-id",
 				EnvVars:     []string{"AWS_ACCESS_KEY_ID"},
 				Required:    true,
-				Destination: &awsAccessKeyId,
+				Destination: &awsAccessKeyID,
 			},
 			&cli.StringFlag{
 				Name:        "aws-secret-key",
@@ -162,7 +158,7 @@ func main() {
 		Action: func(cCtx *cli.Context) error {
 			// Initialize S3 client
 			mc, err := minio.New(awsEndpoint, &minio.Options{
-				Creds:  credentials.NewStaticV4(awsAccessKeyId, awsSecretKey, ""),
+				Creds:  credentials.NewStaticV4(awsAccessKeyID, awsSecretKey, ""),
 				Secure: true,
 			})
 			if err != nil {
@@ -170,16 +166,16 @@ func main() {
 			}
 
 			// Ensure the bucket exists
-			if err := mc.MakeBucket(ctx, cacheBucket, minio.MakeBucketOptions{}); err != nil {
+			if err := mc.MakeBucket(cCtx.Context, cacheBucket, minio.MakeBucketOptions{}); err != nil {
 				return fmt.Errorf("failed to create bucket: %v", err)
 			}
 
-			return runWithReconnect(ctx, mc)
+			return runWithReconnect(cCtx.Context, mc)
 		},
 	}
 
 	if err := bot.Run(os.Args); err != nil {
-		utils.LogErrorWithContext(ctx, err)
+		utils.LogError(err)
 		os.Exit(1)
 	}
 }

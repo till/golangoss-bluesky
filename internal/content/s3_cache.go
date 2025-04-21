@@ -29,6 +29,7 @@ func NewCacheClientS3(ctx context.Context, mc *minio.Client, bucket string) *Cac
 	}
 }
 
+// Set sets a value in the cache
 func (c *CacheClientS3) Set(key string, value any, exp time.Duration) error {
 	var data bytes.Buffer
 	if err := json.NewEncoder(&data).Encode(value); err != nil {
@@ -97,12 +98,14 @@ func (c *CacheClientS3) Get(key string) (string, error) {
 	}
 }
 
+// Del deletes a value from the cache
 func (c *CacheClientS3) Del(key string) error {
 	return c.mc.RemoveObject(c.ctx, c.bucket, key, minio.RemoveObjectOptions{
 		ForceDelete: true,
 	})
 }
 
-func (c *CacheClientS3) Scan(key string, action func(context.Context, string) error) error {
+// Scan satisfies the interface for the cache client
+func (c *CacheClientS3) Scan(_ string, _ func(context.Context, string) error) error {
 	return nil
 }

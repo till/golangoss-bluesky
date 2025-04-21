@@ -100,6 +100,7 @@ func (c *S3Cleanup) cleanupExpired(ctx context.Context) error {
 	return nil
 }
 
+// delete an object from s3
 func (c *S3Cleanup) delete(ctx context.Context, obj minio.ObjectInfo) error {
 	if err := c.mc.RemoveObject(ctx, c.bucket, obj.Key, minio.RemoveObjectOptions{
 		ForceDelete: true,
