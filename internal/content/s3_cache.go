@@ -13,21 +13,47 @@ import (
 
 // CacheClientS3 is a small cache that is backed by an S3-compatible store
 type CacheClientS3 struct {
-	MC     *minio.Client
-	Bucket string
-	CTX    context.Context
+	mc                *minio.Client
+	bucket            string
+	ctx               context.Context
+	defaultExpiration time.Duration
 }
 
-func (c *CacheClientS3) Set(key string, value interface{}, exp time.Duration) error {
-	data, err := json.Marshal(value)
-	if err != nil {
+// NewCacheClientS3 creates a new S3 cache client with default settings
+func NewCacheClientS3(ctx context.Context, mc *minio.Client, bucket string) *CacheClientS3 {
+	return &CacheClientS3{
+		mc:                mc,
+		bucket:            bucket,
+		ctx:               ctx,
+		defaultExpiration: 24 * time.Hour,
+	}
+}
+
+// Set sets a value in the cache
+func (c *CacheClientS3) Set(key string, value any, exp time.Duration) error {
+	var data bytes.Buffer
+	if err := json.NewEncoder(&data).Encode(value); err != nil {
 		return err
 	}
 
-	r := bytes.NewReader(data)
+	r := bytes.NewReader(data.Bytes())
 
-	_, err = c.MC.PutObject(c.CTX, c.Bucket, key, r, int64(r.Len()), minio.PutObjectOptions{
-		Expires: time.Now().Add(exp),
+	// Use the provided expiration time or fall back to default
+	expiration := exp
+	if expiration == 0 {
+		expiration = c.defaultExpiration
+	}
+
+	// Calculate the expiration time
+	expiresAt := time.Now().Add(expiration)
+
+	// Set metadata to track expiration
+	metadata := map[string]string{
+		"expires-at": expiresAt.Format(time.RFC3339),
+	}
+
+	_, err := c.mc.PutObject(c.ctx, c.bucket, key, r, int64(r.Len()), minio.PutObjectOptions{
+		UserMetadata: metadata,
 	})
 	return err
 }
@@ -36,17 +62,27 @@ func (c *CacheClientS3) Set(key string, value interface{}, exp time.Duration) er
 // does not exist, in other case we can use minio.ToErrorResponse(err) to extract more details about the
 // potential S3 related error
 func (c *CacheClientS3) Get(key string) (string, error) {
-	if _, err := c.MC.StatObject(c.CTX, c.Bucket, key, minio.StatObjectOptions{}); err != nil {
+	// First check if object exists and get its metadata
+	objInfo, err := c.mc.StatObject(c.ctx, c.bucket, key, minio.StatObjectOptions{})
+	if err != nil {
 		return "", redis.Nil
 	}
 
-	object, err := c.MC.GetObject(c.CTX, c.Bucket, key, minio.GetObjectOptions{})
+	if expiresAt, ok := objInfo.UserMetadata["expires-at"]; ok {
+		expTime, err := time.Parse(time.RFC3339, expiresAt)
+		if err == nil && time.Now().After(expTime) {
+			// Object has expired, delete it and return not found
+			_ = c.Del(key) // Ignore delete error
+			return "", redis.Nil
+		}
+	}
+
+	object, err := c.mc.GetObject(c.ctx, c.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
 		return "", err
 	}
 
 	var val any
-
 	if err := json.NewDecoder(object).Decode(&val); err != nil {
 		return "", err
 	}
@@ -62,13 +98,14 @@ func (c *CacheClientS3) Get(key string) (string, error) {
 	}
 }
 
+// Del deletes a value from the cache
 func (c *CacheClientS3) Del(key string) error {
-	return c.MC.RemoveObject(c.CTX, c.Bucket, key, minio.RemoveObjectOptions{
+	return c.mc.RemoveObject(c.ctx, c.bucket, key, minio.RemoveObjectOptions{
 		ForceDelete: true,
 	})
 }
 
-func (c *CacheClientS3) Scan(key string, action func(context.Context, string) error) error {
-
+// Scan satisfies the interface for the cache client
+func (c *CacheClientS3) Scan(_ string, _ func(context.Context, string) error) error {
 	return nil
 }
