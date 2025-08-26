@@ -6,7 +6,7 @@ toolchain go1.24.1
 
 require (
 	github.com/go-redis/redis/v8 v8.11.5
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	github.com/tailscale/go-bluesky v0.0.0-20241115170709-693553a07285
 )
 
