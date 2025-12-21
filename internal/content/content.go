@@ -3,6 +3,7 @@ package content
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -10,13 +11,17 @@ import (
 	"github.com/ezeoleaf/larry/config"
 	"github.com/ezeoleaf/larry/provider/github"
 	"github.com/till/golangoss-bluesky/internal/bluesky"
+	"github.com/till/golangoss-bluesky/internal/utils"
 )
 
 var (
-	provider           github.Provider
+	provider github.Provider
+
+	// ErrCouldNotContent is returned when content cannot be fetched
 	ErrCouldNotContent = errors.New("could not get content")
 )
 
+// Start bootstraps the content provider
 func Start(token string, cacheClient cache.Client) error {
 	cfg := config.Config{
 		Language: "go",
@@ -26,10 +31,11 @@ func Start(token string, cacheClient cache.Client) error {
 	return nil
 }
 
+// Do gets content from the provider and posts it to bluesky
 func Do(ctx context.Context, c bluesky.Client) error {
 	p, err := provider.GetContentToPublish()
 	if err != nil {
-		slog.Error("error fetching content", slog.Any("err", err))
+		utils.LogError(fmt.Errorf("error fetching content: %w", err))
 		return ErrCouldNotContent
 	}
 

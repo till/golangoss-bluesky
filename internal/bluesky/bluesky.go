@@ -16,6 +16,7 @@ import (
 	bk "github.com/tailscale/go-bluesky"
 )
 
+// Client wraps the official bluesky sdk
 type Client struct {
 	Client *bk.Client
 }
@@ -51,7 +52,7 @@ func PostRecord(title, description, url, author, stargazers, hashtags string) *b
 		text += "\n\n" + hashtags
 	}
 
-	var startRepoURL int64 = 0
+	var startRepoURL int64
 
 	facets := []*bsky.RichtextFacet{}
 	facets = append(facets, addFacet(
