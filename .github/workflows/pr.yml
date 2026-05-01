@@ -7,12 +7,17 @@ concurrency:
   group: pr-${{ github.event.number }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
+    - uses: actions/checkout@v6.0.2
+      with:
+        persist-credentials: false
+    - uses: actions/setup-go@v6.4.0
       with:
         go-version-file: go.mod
     - uses: docker://morphy/revive-action:v2
@@ -20,8 +25,23 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6.4.0
         with:
           go-version-file: go.mod
       - run: go test -v ./...
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v4.0.0
+      - uses: docker/build-push-action@v7.1.0
+        with:
+          context: .
+          push: false
+          tags: bot:dev
