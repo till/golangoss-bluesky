@@ -75,9 +75,14 @@ func main() {
 				return fmt.Errorf("failed to initialize minio client: %v", err)
 			}
 
-			// Ensure the bucket exists
-			if err := mc.MakeBucket(ctx, cacheBucket, minio.MakeBucketOptions{}); err != nil {
-				return fmt.Errorf("failed to create bucket: %v", err)
+			exists, err := mc.BucketExists(ctx, cacheBucket)
+			if err != nil {
+				return fmt.Errorf("failed to check bucket: %w", err)
+			}
+			if !exists {
+				if err := mc.MakeBucket(ctx, cacheBucket, minio.MakeBucketOptions{}); err != nil {
+					return fmt.Errorf("failed to create bucket: %w", err)
+				}
 			}
 
 			config := cmd.Config{
