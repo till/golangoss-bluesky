@@ -4,7 +4,26 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    groups:
+      go:
+        update-types:
+          - minor
+          - patch
+    cooldown:
+      default-days: 7
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      action-deps:
+        patterns:
+          - "*"
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
