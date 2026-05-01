@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -94,7 +95,7 @@ func (c *CacheClientS3) Get(key string) (string, error) {
 	case string:
 		return v, nil
 	default:
-		panic("unknown type")
+		return "", fmt.Errorf("unexpected cached value type %T for key %q", v, key)
 	}
 }
 
