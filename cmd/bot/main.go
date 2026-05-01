@@ -63,7 +63,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:     "github-token",
-				Sources:  cli.EnvVars("GITHUB_TOKEN"),
+				Sources:  cli.EnvVars("GH_TOKEN"),
 				Required: true,
 			},
 		},
