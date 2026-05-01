@@ -44,47 +44,71 @@ func connectBluesky(ctx context.Context, handle, appKey string) (*bk.Client, err
 
 // RunWithReconnect attempts to run the bot with automatic reconnection on failure
 func RunWithReconnect(ctx context.Context, mc *minio.Client, cfg Config) error {
+	cacheClient := content.NewCacheClientS3(ctx, mc, cfg.CacheBucket)
+
+	cleanup := content.NewS3Cleanup(mc, cfg.CacheBucket)
+	cleanup.Start(ctx)
+	defer cleanup.Stop()
+
+	if err := content.Start(cfg.GitHubToken, cacheClient); err != nil {
+		return fmt.Errorf("failed to start service: %w", err)
+	}
+
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		client, err := connectBluesky(ctx, cfg.Handle, cfg.AppKey)
 		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			slog.Error("failed to connect to Bluesky", "error", err)
 			slog.Info("retrying connection", "delay", reconnectDelay)
-			time.Sleep(reconnectDelay)
-			continue
-		}
-
-		c := bluesky.Client{
-			Client: client,
-		}
-
-		cacheClient := content.NewCacheClientS3(ctx, mc, cfg.CacheBucket)
-
-		// Initialize and start the cleanup handler
-		cleanup := content.NewS3Cleanup(mc, cfg.CacheBucket)
-		cleanup.Start(ctx)
-		defer cleanup.Stop()
-
-		if err := content.Start(cfg.GitHubToken, cacheClient); err != nil {
-			slog.Error("failed to start service", "error", err)
-			client.Close()
-			time.Sleep(reconnectDelay)
-			continue
-		}
-
-		// Run the main loop
-		for {
-			slog.DebugContext(ctx, "checking...")
-			if err := content.Do(ctx, c); err != nil {
-				if !errors.Is(err, content.ErrCouldNotContent) {
-					slog.Error("error during content check", "error", err)
-					client.Close()
-					time.Sleep(reconnectDelay)
-					break
-				}
-				slog.DebugContext(ctx, "backing off...")
+			if err := sleepCtx(ctx, reconnectDelay); err != nil {
+				return err
 			}
-
-			time.Sleep(checkInterval)
+			continue
 		}
+
+		c := bluesky.Client{Client: client}
+		runSession(ctx, c)
+		client.Close()
+
+		if err := sleepCtx(ctx, reconnectDelay); err != nil {
+			return err
+		}
+	}
+}
+
+// runSession runs the inner check loop until ctx is cancelled or content.Do
+// returns a non-recoverable error. The caller is responsible for closing the
+// bluesky client and reconnecting.
+func runSession(ctx context.Context, c bluesky.Client) {
+	for {
+		slog.DebugContext(ctx, "checking...")
+		if err := content.Do(ctx, c); err != nil {
+			if !errors.Is(err, content.ErrCouldNotContent) {
+				slog.Error("error during content check", "error", err)
+				return
+			}
+			slog.DebugContext(ctx, "backing off...")
+		}
+		if err := sleepCtx(ctx, checkInterval); err != nil {
+			return
+		}
+	}
+}
+
+// sleepCtx sleeps for d, returning ctx.Err() if ctx is cancelled first.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
 	}
 }

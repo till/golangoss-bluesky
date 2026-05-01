@@ -3,6 +3,7 @@ package content
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -17,6 +18,7 @@ type S3Cleanup struct {
 	cleanupInterval time.Duration
 	// stopCleanup is used to signal the cleanup routine to stop
 	stopCleanup chan struct{}
+	stopOnce    sync.Once
 }
 
 // NewS3Cleanup creates a new S3 cleanup handler
@@ -34,15 +36,21 @@ func (c *S3Cleanup) Start(ctx context.Context) {
 	go c.cleanupRoutine(ctx)
 }
 
-// Stop stops the background cleanup routine
+// Stop stops the background cleanup routine. Safe to call multiple times.
 func (c *S3Cleanup) Stop() {
-	close(c.stopCleanup)
+	c.stopOnce.Do(func() { close(c.stopCleanup) })
 }
 
-// cleanupRoutine periodically checks for and deletes expired objects
+// cleanupRoutine periodically checks for and deletes expired objects.
+// It runs once at startup before entering the ticker loop so restarts
+// shorter than cleanupInterval do not skip cleanup entirely.
 func (c *S3Cleanup) cleanupRoutine(ctx context.Context) {
 	ticker := time.NewTicker(c.cleanupInterval)
 	defer ticker.Stop()
+
+	if err := c.cleanupExpired(ctx); err != nil {
+		utils.LogErrorWithContext(ctx, fmt.Errorf("failed to cleanup expired objects: %w", err))
+	}
 
 	for {
 		select {
@@ -50,6 +58,8 @@ func (c *S3Cleanup) cleanupRoutine(ctx context.Context) {
 			if err := c.cleanupExpired(ctx); err != nil {
 				utils.LogErrorWithContext(ctx, fmt.Errorf("failed to cleanup expired objects: %w", err))
 			}
+		case <-ctx.Done():
+			return
 		case <-c.stopCleanup:
 			return
 		}
