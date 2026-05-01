@@ -60,13 +60,15 @@ func (c *CacheClientS3) Set(key string, value any, exp time.Duration) error {
 }
 
 // Get returns an object, it follows the original pattern in larry to return redis.Nil when an object
-// does not exist, in other case we can use minio.ToErrorResponse(err) to extract more details about the
-// potential S3 related error
+// does not exist. Other S3 errors (network, 5xx, auth) are propagated so callers can distinguish a
+// genuine cache miss from a transient failure.
 func (c *CacheClientS3) Get(key string) (string, error) {
-	// First check if object exists and get its metadata
 	objInfo, err := c.mc.StatObject(c.ctx, c.bucket, key, minio.StatObjectOptions{})
 	if err != nil {
-		return "", redis.Nil
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			return "", redis.Nil
+		}
+		return "", err
 	}
 
 	if expiresAt, ok := objInfo.UserMetadata["expires-at"]; ok {
