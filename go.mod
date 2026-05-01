@@ -4,6 +4,7 @@ go 1.25
 
 require (
 	github.com/go-redis/redis/v8 v8.11.5
+	github.com/google/go-github/v39 v39.2.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tailscale/go-bluesky v0.0.0-20241115170709-693553a07285
 	github.com/urfave/cli/v3 v3.8.0
@@ -20,7 +21,6 @@ require (
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/go-github/v39 v39.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect

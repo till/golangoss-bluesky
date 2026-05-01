@@ -27,7 +27,9 @@ func Start(token string, cacheClient cache.Client) error {
 		Language: "go",
 	}
 
-	provider = github.NewProvider(token, cfg, cacheClient)
+	p := github.NewProvider(token, cfg, cacheClient)
+	p.GithubSearchClient = larrySearchFix{inner: p.GithubSearchClient}
+	provider = p
 	return nil
 }
 
