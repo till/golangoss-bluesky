@@ -3,9 +3,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/mail"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"log/slog"
 
@@ -96,7 +99,13 @@ func main() {
 		},
 	}
 
-	if err := bot.Run(context.Background(), os.Args); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	if err := bot.Run(ctx, os.Args); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return
+		}
 		utils.LogError(err)
 		os.Exit(1)
 	}
