@@ -7,7 +7,7 @@ require (
 	github.com/google/go-github/v39 v39.2.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tailscale/go-bluesky v0.0.0-20241115170709-693553a07285
-	github.com/urfave/cli/v3 v3.9.0
+	github.com/urfave/cli/v3 v3.9.1
 )
 
 require (
