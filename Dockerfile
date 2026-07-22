@@ -8,7 +8,7 @@ RUN go mod download
 COPY . ./
 RUN go build ./cmd/...
 
-FROM debian:13.5-slim
+FROM debian:13.6-slim
 
 RUN DEBIAN_FRONTEND=noninteractive apt update \
     && apt install -y ca-certificates
