@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/stretchr/testify v1.11.1
-	github.com/tailscale/go-bluesky v0.0.0-20241115170709-693553a07285
+	github.com/tailscale/go-bluesky v0.0.0-20250504220631-079315ca10a1
 	github.com/urfave/cli/v3 v3.10.1
 )
 
@@ -41,9 +41,6 @@ require (
 
 require (
 	github.com/bluesky-social/indigo v0.0.0-20241119234843-9198b7903723
-	github.com/btcsuite/btcd v0.0.0-20190824003749-130ea5bddde3 // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
-	github.com/ethereum/go-ethereum v1.9.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.0.0 // indirect
 	github.com/google/go-github/v90 v90.0.0
@@ -77,7 +74,6 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/polydawn/refmt v0.89.1-0.20221221234430-40501e09de1f // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/ureeves/jwt-go-secp256k1 v0.2.0 // indirect
 	github.com/whyrusleeping/cbor-gen v0.2.1-0.20241030202151-b7a6831be65e // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
