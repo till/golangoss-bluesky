@@ -1,10 +1,9 @@
 module github.com/till/golangoss-bluesky
 
-go 1.26
+go 1.26.1
 
 require (
 	github.com/go-redis/redis/v8 v8.11.5
-	github.com/google/go-github/v39 v39.2.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tailscale/go-bluesky v0.0.0-20241115170709-693553a07285
 	github.com/urfave/cli/v3 v3.10.1
@@ -19,8 +18,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
@@ -36,10 +34,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.21.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/ini.v1 v1.67.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
@@ -49,9 +44,9 @@ require (
 	github.com/btcsuite/btcd v0.0.0-20190824003749-130ea5bddde3 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/ethereum/go-ethereum v1.9.3 // indirect
-	github.com/ezeoleaf/larry v0.10.0
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.0.0 // indirect
+	github.com/google/go-github/v90 v90.0.0
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.5 // indirect

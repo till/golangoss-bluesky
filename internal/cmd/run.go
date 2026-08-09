@@ -11,6 +11,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/till/golangoss-bluesky/internal/bluesky"
+	"github.com/till/golangoss-bluesky/internal/cache"
 	"github.com/till/golangoss-bluesky/internal/content"
 )
 
@@ -44,7 +45,7 @@ func connectBluesky(ctx context.Context, handle, appKey string) (*bk.Client, err
 
 // RunWithReconnect attempts to run the bot with automatic reconnection on failure
 func RunWithReconnect(ctx context.Context, mc *minio.Client, cfg Config) error {
-	cacheClient := content.NewCacheClientS3(ctx, mc, cfg.CacheBucket)
+	cacheClient := cache.NewClientS3(mc, cfg.CacheBucket)
 
 	cleanup := content.NewS3Cleanup(mc, cfg.CacheBucket)
 	cleanup.Start(ctx)

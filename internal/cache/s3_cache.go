@@ -1,4 +1,8 @@
-package content
+// Package cache stores which repos we've already posted, backed by an
+// S3-compatible object store. Entries carry an expires-at metadata header;
+// stale entries are cleaned up lazily on Get and swept periodically by the
+// cleanup routine in the content package.
+package cache
 
 import (
 	"bytes"
@@ -12,26 +16,24 @@ import (
 	"github.com/minio/minio-go/v7"
 )
 
-// CacheClientS3 is a small cache that is backed by an S3-compatible store
-type CacheClientS3 struct {
+// ClientS3 is a small cache that is backed by an S3-compatible store
+type ClientS3 struct {
 	mc                *minio.Client
 	bucket            string
-	ctx               context.Context
 	defaultExpiration time.Duration
 }
 
 // NewCacheClientS3 creates a new S3 cache client with default settings
-func NewCacheClientS3(ctx context.Context, mc *minio.Client, bucket string) *CacheClientS3 {
-	return &CacheClientS3{
+func NewClientS3(mc *minio.Client, bucket string) ClientS3 {
+	return ClientS3{
 		mc:                mc,
 		bucket:            bucket,
-		ctx:               ctx,
 		defaultExpiration: 60 * 24 * time.Hour,
 	}
 }
 
 // Set sets a value in the cache
-func (c *CacheClientS3) Set(key string, value any, exp time.Duration) error {
+func (c *ClientS3) Set(ctx context.Context, key string, value any, exp time.Duration) error {
 	var data bytes.Buffer
 	if err := json.NewEncoder(&data).Encode(value); err != nil {
 		return err
@@ -53,17 +55,16 @@ func (c *CacheClientS3) Set(key string, value any, exp time.Duration) error {
 		"expires-at": expiresAt.Format(time.RFC3339),
 	}
 
-	_, err := c.mc.PutObject(c.ctx, c.bucket, key, r, int64(r.Len()), minio.PutObjectOptions{
+	_, err := c.mc.PutObject(ctx, c.bucket, key, r, int64(r.Len()), minio.PutObjectOptions{
 		UserMetadata: metadata,
 	})
 	return err
 }
 
-// Get returns an object, it follows the original pattern in larry to return redis.Nil when an object
-// does not exist. Other S3 errors (network, 5xx, auth) are propagated so callers can distinguish a
-// genuine cache miss from a transient failure.
-func (c *CacheClientS3) Get(key string) (string, error) {
-	objInfo, err := c.mc.StatObject(c.ctx, c.bucket, key, minio.StatObjectOptions{})
+// Get returns an object, returns nil when it does not exist.
+// Other S3 errors (network, 5xx, auth) are propagated so callers can distinguish a genuine cache miss from a transient failure.
+func (c *ClientS3) Get(ctx context.Context, key string) (string, error) {
+	objInfo, err := c.mc.StatObject(ctx, c.bucket, key, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			return "", redis.Nil
@@ -75,12 +76,12 @@ func (c *CacheClientS3) Get(key string) (string, error) {
 		expTime, err := time.Parse(time.RFC3339, expiresAt)
 		if err == nil && time.Now().After(expTime) {
 			// Object has expired, delete it and return not found
-			_ = c.Del(key) // Ignore delete error
+			_ = c.Del(ctx, key) // Ignore delete error
 			return "", redis.Nil
 		}
 	}
 
-	object, err := c.mc.GetObject(c.ctx, c.bucket, key, minio.GetObjectOptions{})
+	object, err := c.mc.GetObject(ctx, c.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -102,13 +103,8 @@ func (c *CacheClientS3) Get(key string) (string, error) {
 }
 
 // Del deletes a value from the cache
-func (c *CacheClientS3) Del(key string) error {
-	return c.mc.RemoveObject(c.ctx, c.bucket, key, minio.RemoveObjectOptions{
+func (c *ClientS3) Del(ctx context.Context, key string) error {
+	return c.mc.RemoveObject(ctx, c.bucket, key, minio.RemoveObjectOptions{
 		ForceDelete: true,
 	})
-}
-
-// Scan satisfies the interface for the cache client
-func (c *CacheClientS3) Scan(_ string, _ func(context.Context, string) error) error {
-	return nil
 }

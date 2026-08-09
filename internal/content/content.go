@@ -5,66 +5,67 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
+	"time"
 
-	"github.com/ezeoleaf/larry/cache"
-	"github.com/ezeoleaf/larry/config"
-	"github.com/ezeoleaf/larry/provider/github"
 	"github.com/till/golangoss-bluesky/internal/bluesky"
+	"github.com/till/golangoss-bluesky/internal/cache"
+	"github.com/till/golangoss-bluesky/internal/config"
+	ghprovider "github.com/till/golangoss-bluesky/internal/provider"
 	"github.com/till/golangoss-bluesky/internal/utils"
 )
 
 var (
-	provider github.Provider
+	prov *ghprovider.Provider
 
 	// ErrCouldNotContent is returned when content cannot be fetched
 	ErrCouldNotContent = errors.New("could not get content")
 )
 
+// activeWithin is the max age of a repo's last push for it to be considered
+// alive. Anything older is filtered out at the search layer.
+const activeWithin = 365 * 24 * time.Hour
+
 // Start bootstraps the content provider
-func Start(token string, cacheClient cache.Client) error {
+func Start(token string, cacheClient cache.ClientS3) error {
 	cfg := config.Config{
-		Language: "go",
+		Language:    "go",
+		Archived:    false,
+		PushedSince: time.Now().UTC().Add(-activeWithin),
 	}
 
-	p := github.NewProvider(token, cfg, cacheClient)
-	p.GithubSearchClient = larrySearchFix{inner: p.GithubSearchClient}
-	provider = p
+	p, err := ghprovider.NewProvider(token, cfg, cacheClient)
+	if err != nil {
+		return err
+	}
+	prov = &p
 	return nil
 }
 
 // Do gets content from the provider and posts it to bluesky
 func Do(ctx context.Context, c bluesky.Client) error {
-	p, err := provider.GetContentToPublish()
+	item, err := prov.GetContentToPublish(ctx)
 	if err != nil {
 		utils.LogError(fmt.Errorf("error fetching content: %w", err))
 		return ErrCouldNotContent
 	}
 
-	if p == nil {
+	if item == nil {
 		slog.Debug("nothing found")
 		return nil
 	}
 
-	var author, stargazers, hashTags string
-
-	if len(p.ExtraData) > 0 {
-		for _, e := range p.ExtraData {
-			if strings.Contains(e, "Author: @") {
-				author = strings.Replace(e, "Author: ", "", 1)
-			}
-
-			if strings.Contains(e, "#") {
-				hashTags = strings.TrimSpace(e)
-				continue
-			}
-
-			if strings.Contains(e, "⭐️ ") {
-				stargazers = e
-				continue
-			}
-		}
+	author := ""
+	if item.Author.GitHubLogin != "" {
+		author = "@" + item.Author.GitHubLogin
 	}
+	stargazers := fmt.Sprintf("⭐️ %d", item.Stars)
 
-	return c.Post(ctx, bluesky.PostRecord(*p.Title, *p.Subtitle, *p.URL, author, stargazers, hashTags))
+	return c.Post(ctx, bluesky.PostRecord(
+		item.Title,
+		item.Description,
+		item.URL,
+		author,
+		stargazers,
+		item.Hashtag,
+	))
 }
