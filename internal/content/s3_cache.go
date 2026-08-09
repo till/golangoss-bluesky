@@ -26,7 +26,7 @@ func NewCacheClientS3(ctx context.Context, mc *minio.Client, bucket string) *Cac
 		mc:                mc,
 		bucket:            bucket,
 		ctx:               ctx,
-		defaultExpiration: 24 * time.Hour,
+		defaultExpiration: 60 * 24 * time.Hour,
 	}
 }
 
