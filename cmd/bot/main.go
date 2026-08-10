@@ -15,6 +15,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/till/golangoss-bluesky/internal/cmd"
+	"github.com/till/golangoss-bluesky/internal/stats"
 	"github.com/till/golangoss-bluesky/internal/utils"
 	"github.com/urfave/cli/v3"
 )
@@ -66,6 +67,11 @@ func main() {
 				Sources:  cli.EnvVars("GH_TOKEN"),
 				Required: true,
 			},
+			&cli.StringFlag{
+				Name:    "stats-port",
+				Sources: cli.EnvVars("STATS_PORT", "PORT"),
+				Value:   "8080",
+			},
 		},
 
 		Action: func(ctx context.Context, c *cli.Command) error {
@@ -94,6 +100,15 @@ func main() {
 				CacheBucket: cacheBucket,
 				GitHubToken: c.String("github-token"),
 			}
+
+			addr := "0.0.0.0" + c.String("stats-port")
+
+			statsSrv := stats.NewServer(addr, stats.MinioProvider(mc, cacheBucket))
+			go func() {
+				if err := statsSrv.ListenAndServe(ctx); err != nil {
+					slog.Error("stats server error", "error", err)
+				}
+			}()
 
 			return cmd.RunWithReconnect(ctx, mc, config)
 		},

@@ -15,6 +15,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt update \
 
 # nobody
 USER 65534:65534
+EXPOSE 8080
 
 COPY --from=build --chown=65534:65534 /build/bot /usr/bin/bot
 
