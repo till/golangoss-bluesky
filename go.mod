@@ -7,7 +7,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/stretchr/testify v1.12.1
 	github.com/tailscale/go-bluesky v0.0.0-20250504220631-079315ca10a1
-	github.com/urfave/cli/v3 v3.11.0
+	github.com/urfave/cli/v3 v3.12.0
 )
 
 require (
