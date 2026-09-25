@@ -3,7 +3,7 @@ module github.com/till/golangoss-bluesky
 go 1.26.1
 
 require (
-	github.com/dustin/go-humanize v1.0.1
+	github.com/dustin/go-humanize v1.1.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/stretchr/testify v1.12.1
 	github.com/tailscale/go-bluesky v0.0.0-20250504220631-079315ca10a1
